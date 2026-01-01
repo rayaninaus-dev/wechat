@@ -1,0 +1,5 @@
+{
+  "name": "WeVocab AI",
+  "description": "A WeChat Mini Program style vocabulary learning app powered by Gemini. Features AI word generation, TTS pronunciation, and spaced repetition logic.",
+  "requestFramePermissions": []
+}
