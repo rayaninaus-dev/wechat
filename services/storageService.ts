@@ -1,16 +1,52 @@
-import { WordItem, SRS_MAX_STAGE } from '../types';
+import { WordItem, SRS_MAX_STAGE, LearningStatus, StudyQuality } from '../types';
 import { getPresetWords } from './presetData';
 import { wx } from '../utils/wx';
+import { updateWordProgress as srsUpdateWordProgress, createNewWord, isDueForReview } from './srsService';
 
 const STORAGE_KEY_WORDS = 'wevocab_words';
 const STORAGE_KEY_STATS = 'wevocab_stats';
+const STORAGE_KEY_SESSIONS = 'wevocab_sessions';
 
-// Ebbinghaus-style intervals in days
-const INTERVALS = [0.5, 1, 3, 7, 15, 30];
+// 迁移老版本数据到新格式
+function migrateOldWord(word: any): WordItem {
+  // 如果已经是新格式，直接返回
+  if (word.learningStatus) {
+    return word;
+  }
+  
+  // 将旧格式转换为新格式
+  const stage = word.stage || -1;
+  let learningStatus: LearningStatus = 'new';
+  
+  if (stage === -1) {
+    learningStatus = 'new';
+  } else if (stage >= SRS_MAX_STAGE) {
+    learningStatus = 'mastered';
+  } else if (stage > 0) {
+    learningStatus = 'review';
+  } else {
+    learningStatus = 'learning';
+  }
+
+  return {
+    ...word,
+    learningStatus,
+    interval: word.interval || 1,
+    easeFactor: word.easeFactor || 2.5,
+    reviewCount: word.reviewCount || 0,
+    correctCount: word.correctCount || 0,
+    wrongCount: word.wrongCount || 0,
+    createdDate: word.createdDate || Date.now(),
+    lastReviewDate: word.lastReview || 0,
+  };
+}
 
 export const getLocalWords = (): WordItem[] => {
   const data = wx.getStorageSync(STORAGE_KEY_WORDS);
-  return data ? data : [];
+  if (!data) return [];
+  
+  // 迁移旧版本数据
+  return data.map(migrateOldWord);
 };
 
 export const saveLocalWords = (words: WordItem[]) => {
@@ -44,16 +80,16 @@ export const getTopicStats = (topic: string) => {
 
   return {
     topic,
-    newCount: words.filter(w => w.stage === -1).length,
-    learningCount: words.filter(w => w.stage >= 0 && w.stage < SRS_MAX_STAGE).length,
-    dueCount: words.filter(w => w.stage >= 0 && w.stage < SRS_MAX_STAGE && w.nextReviewDate <= now).length,
-    masteredCount: words.filter(w => w.stage >= SRS_MAX_STAGE).length
+    newCount: words.filter(w => w.learningStatus === 'new').length,
+    learningCount: words.filter(w => w.learningStatus === 'learning').length,
+    dueCount: words.filter(w => (w.learningStatus === 'learning' || w.learningStatus === 'review') && w.nextReviewDate <= now).length,
+    masteredCount: words.filter(w => w.learningStatus === 'mastered').length
   };
 };
 
 // Get words ready for "New Learning" session for a topic
 export const getNewWordsForTopic = (topic: string, limit: number = 5): WordItem[] => {
-  const words = getLocalWords().filter(w => w.topic === topic && w.stage === -1);
+  const words = getLocalWords().filter(w => w.topic === topic && w.learningStatus === 'new');
   return words.slice(0, limit);
 };
 
@@ -62,8 +98,7 @@ export const getDueWordsForTopic = (topic: string): WordItem[] => {
   const now = Date.now();
   const words = getLocalWords().filter(w => 
     w.topic === topic && 
-    w.stage >= 0 && 
-    w.stage < SRS_MAX_STAGE && 
+    (w.learningStatus === 'learning' || w.learningStatus === 'review' || w.learningStatus === 'lapsed') && 
     w.nextReviewDate <= now
   );
   // Sort by overdue time (most overdue first)
@@ -75,56 +110,17 @@ export const getAllKnownWords = (): string[] => {
   return getLocalWords().map(w => w.word);
 };
 
-// Update a word after a study session
-export const updateWordProgress = (word: WordItem, isRemembered: boolean): WordItem[] => {
+// Update a word after a study session using SRS algorithm
+export const updateWordProgress = (word: WordItem, quality: StudyQuality): WordItem[] => {
   const words = getLocalWords();
   const index = words.findIndex(w => w.word === word.word);
   
   if (index === -1) return words;
 
-  const now = Date.now();
-  let currentStage = words[index].stage;
+  // 使用 SRS 服务更新单词进度
+  const updatedWord = srsUpdateWordProgress(words[index], quality);
   
-  let newStage = currentStage;
-  let nextReview = now;
-
-  // Handle "New" words (Stage -1) transitioning to Learning
-  if (currentStage === -1) {
-    if (isRemembered) {
-      newStage = 1; // Jump start
-    } else {
-      newStage = 0; // Start at beginning
-    }
-  } else {
-    // Handle Review words
-    if (isRemembered) {
-      newStage = currentStage + 1;
-    } else {
-      // Forgot: Reset drastically
-      newStage = Math.max(0, currentStage - 2); 
-    }
-  }
-
-  // Calculate Next Review Date if not mastered
-  if (newStage < SRS_MAX_STAGE) {
-    const daysToAdd = INTERVALS[newStage] || 1;
-    nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
-  } else {
-    // Mastered
-    nextReview = 0; // No next review
-  }
-
-  // Update Mastery Visuals (0-3 stars) roughly mapping to stages
-  const mastery = Math.min(3, Math.floor(newStage / 2));
-
-  words[index] = {
-    ...words[index],
-    stage: newStage,
-    masteryLevel: mastery,
-    lastReview: now,
-    nextReviewDate: nextReview
-  };
-
+  words[index] = updatedWord;
   saveLocalWords(words);
   return words;
 };

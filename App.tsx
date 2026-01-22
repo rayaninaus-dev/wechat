@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { ViewState, WordItem, UserStats, Difficulty, TopicStats } from './types';
 import TabBar from './components/TabBar';
 import WordCard from './components/WordCard';
+import StatsPanel from './components/StatsPanel';
+import AchievementDisplay from './components/AchievementDisplay';
+import TopicGrid from './components/TopicGrid';
+import OnboardingGuide from './components/OnboardingGuide';
 import { WxOverlays } from './components/WxOverlays';
 import { View, Text, Button, ScrollView, Image } from './components/WxComponents';
 import { generateWordBatch } from './services/geminiService';
@@ -56,6 +60,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [stats, setStats] = useState<UserStats>(INITIAL_STATS);
   const [topicStats, setTopicStats] = useState<TopicStats[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // Study Session State
   const [words, setWords] = useState<WordItem[]>([]);
@@ -68,6 +73,13 @@ const App: React.FC = () => {
     initializePresets();
     const savedStats = getUserStats();
     if (savedStats) setStats(savedStats);
+    
+    // Check if user has seen onboarding
+    const onboardingCompleted = wx.getStorageSync('onboarding_completed');
+    if (!onboardingCompleted) {
+      setShowOnboarding(true);
+    }
+    
     refreshData();
 
     // Listen to routing events from components
@@ -155,13 +167,15 @@ const App: React.FC = () => {
 
   const handleCardResult = (remembered: boolean) => {
     const currentWord = words[currentCardIndex];
-    updateWordProgress(currentWord, remembered);
+    // 转换为 5 级反馈（暂时用 3 级映射，稍后会升级为 5 级）
+    const quality = remembered ? 4 : 1;  // 4=容易, 1=太困难
+    updateWordProgress(currentWord, quality);
     
     if (remembered) {
       setStats(prev => ({
         ...prev,
         todayCount: prev.todayCount + 1,
-        totalWordsLearned: prev.totalWordsLearned + (currentWord.masteryLevel === 0 ? 1 : 0)
+        totalWordsLearned: prev.totalWordsLearned + (currentWord.learningStatus === 'new' ? 1 : 0)
       }));
     }
 
@@ -176,131 +190,118 @@ const App: React.FC = () => {
   // --- UI RENDERERS ---
 
   const renderHome = () => (
-    <View className="flex flex-col h-full bg-slate-50 relative">
-      {/* Hero Dashboard */}
-      <View className="bg-white rounded-b-[2.5rem] p-8 pt-10 pb-10 shadow-xl shadow-slate-100 z-10 relative overflow-hidden">
-        <View className="absolute top-[-50%] right-[-20%] w-96 h-96 bg-green-50 rounded-full blur-3xl opacity-60 pointer-events-none"></View>
-        
-        <View className="flex justify-between items-start mb-6 relative">
+    <View className="flex flex-col h-full bg-white dark:bg-black relative pb-32 transition-colors duration-200">
+      {/* Header Section - Apple Minimalist */}
+      <View className="relative z-10 px-6 pt-8 pb-6 border-b border-gray-200 dark:border-gray-800">
+        {/* Top Bar - Date & Streak */}
+        <View className="flex justify-between items-center mb-8">
           <View>
-            <Text className="text-3xl font-black text-slate-800 tracking-tight block">Hello, <br/>Guest</Text>
-            <Text className="text-slate-400 font-medium mt-1 block">Ready to learn?</Text>
+            <Text className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1 block">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </Text>
+            <Text className="text-3xl font-bold text-black dark:text-white">Ready to learn?</Text>
           </View>
-          <View className="flex flex-col items-end">
-            <View className="flex items-center gap-1.5 bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
-               <Flame size={18} className="fill-orange-500 text-orange-500" />
-               <Text className="text-sm font-bold text-orange-600">{stats.streakDays} Day Streak</Text>
+          <View className="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 rounded-xl border border-orange-200 dark:border-orange-800/50 shadow-sm">
+            <Flame size={18} className="fill-orange-500 text-orange-500" />
+            <View className="flex flex-col items-end">
+              <Text className="text-xs font-semibold text-orange-600 dark:text-orange-400 leading-none">{stats.streakDays}</Text>
+              <Text className="text-[10px] text-orange-600/70 dark:text-orange-400/60 font-medium">streak</Text>
             </View>
           </View>
         </View>
 
-        {/* Daily Goal Card */}
-        <View className="bg-slate-900 rounded-3xl p-6 text-white relative overflow-hidden shadow-lg shadow-slate-300">
-           <View className="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full translate-x-1/3 -translate-y-1/3 blur-2xl opacity-50"></View>
-           <View className="relative z-10 flex justify-between items-center">
-              <View>
-                <Text className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1 block">Daily Goal</Text>
-                <View className="flex items-baseline gap-1">
-                  <Text className="text-4xl font-black">{stats.todayCount}</Text>
-                  <Text className="text-slate-400 font-medium">/ 20 words</Text>
+        {/* Daily Goal Card - Apple Style */}
+        <View className="bg-blue-500 dark:bg-blue-600 rounded-2xl p-6 text-white relative overflow-hidden shadow-sm">
+          {/* Subtle Background */}
+          <View className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl" />
+
+          {/* Content */}
+          <View className="relative z-10 flex justify-between items-center">
+            <View className="flex-1">
+              <Text className="text-blue-100 text-xs font-semibold uppercase tracking-wider block mb-2">Today's Goal</Text>
+              <View className="flex items-baseline gap-2">
+                <Text className="text-5xl font-bold">{stats.todayCount}</Text>
+                <Text className="text-blue-100 font-medium">/ 20</Text>
+              </View>
+              <View className="mt-4 flex items-center gap-2">
+                <View className="flex-1 h-2 bg-blue-400/30 rounded-full overflow-hidden">
+                  <View 
+                    className="h-full bg-white transition-all duration-500"
+                    style={{ width: `${(stats.todayCount / 20) * 100}%` }}
+                  />
                 </View>
+                <Text className="text-xs font-semibold text-blue-100 ml-2">
+                  {Math.round((stats.todayCount / 20) * 100)}%
+                </Text>
               </View>
-              <View className="h-14 w-14 relative flex items-center justify-center">
-                 <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-slate-700" />
-                    <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-[#07c160]" strokeDasharray={150} strokeDashoffset={150 - (150 * Math.min(stats.todayCount, 20) / 20)} strokeLinecap="round" />
-                 </svg>
-                 <Trophy size={20} className="text-white absolute" />
-              </View>
-           </View>
+            </View>
+
+            {/* Circular Progress */}
+            <View className="h-20 w-20 relative flex items-center justify-center ml-4 flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-blue-400/30" />
+                <circle 
+                  cx="40" cy="40" r="36" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  fill="transparent" 
+                  className="text-white transition-all duration-500"
+                  strokeDasharray={226}
+                  strokeDashoffset={226 - (226 * Math.min(stats.todayCount, 20) / 20)}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <Trophy size={28} className="text-white absolute" />
+            </View>
+          </View>
+
+          {/* Action Button */}
+          <View className="mt-4 pt-4 border-t border-white/20 flex gap-3">
+            <Button
+              type="primary"
+              className="flex-1 !bg-white !border-white !text-blue-500 rounded-lg !font-semibold"
+              onClick={() => {
+                const newWordTopics = topicStats.filter(t => t.newCount > 0);
+                if (newWordTopics.length > 0) {
+                  handleLearnNew(newWordTopics[0].topic);
+                }
+              }}
+            >
+              <PlusCircle size={16} />
+              Start
+            </Button>
+          </View>
         </View>
       </View>
 
-      {/* Courses Grid */}
-      <ScrollView scrollY className="flex-1 p-6 pb-32 space-y-6">
-        <Text className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <Book size={20} className="text-slate-400" />
-          My Courses
+      {/* Achievements Section */}
+      <View className="px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-800">
+        <Text className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-3 block">
+          Recent Achievements
         </Text>
-        
-        <View className="space-y-4 pb-20">
-        {topicStats.map((t, i) => (
-          <View key={t.topic} className="bg-white p-1 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
-            <View className="flex p-4 gap-4">
-              {/* Icon / Cover */}
-              <View className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${getTopicGradient(i)} flex items-center justify-center shadow-inner text-white shrink-0 relative`}>
-                 <Text className="text-2xl font-bold opacity-40">{t.topic.charAt(0)}</Text>
-                 {t.newCount > 0 && (
-                   <View className="absolute top-1 right-1 bg-white px-1.5 rounded-full shadow-sm">
-                     <Text className="text-[10px] font-bold text-slate-800">+{t.newCount}</Text>
-                   </View>
-                 )}
-              </View>
-              
-              <View className="flex-1 flex flex-col justify-between py-1">
-                <View className="flex justify-between items-start">
-                   <Text className="font-bold text-slate-800 text-lg leading-tight">{t.topic}</Text>
-                   {t.dueCount > 0 ? (
-                     <View className="bg-red-100 px-2 py-0.5 rounded-full">
-                       <Text className="text-red-600 text-[10px] font-bold">{t.dueCount} Review</Text>
-                     </View>
-                   ) : (
-                     <View className="bg-slate-100 px-2 py-0.5 rounded-full">
-                       <Text className="text-slate-400 text-[10px] font-bold">All Caught Up</Text>
-                     </View>
-                   )}
-                </View>
-                
-                {/* Micro Stats */}
-                <View className="flex gap-4 mt-2">
-                   <View className="flex flex-col">
-                      <Text className="text-[10px] font-bold text-slate-400 uppercase">Mastered</Text>
-                      <Text className="text-sm font-bold text-emerald-500">{t.masteredCount}</Text>
-                   </View>
-                   <View className="flex flex-col">
-                      <Text className="text-[10px] font-bold text-slate-400 uppercase">Library</Text>
-                      <Text className="text-sm font-bold text-blue-500">{t.learningCount + t.newCount}</Text>
-                   </View>
-                </View>
-              </View>
-            </View>
+        <AchievementDisplay compact={true} />
+      </View>
 
-            {/* Actions Bar - using Button wrappers */}
-            <View className="flex items-center gap-2 px-4 pb-4">
-              <Button 
-                type={t.newCount > 0 ? 'primary' : 'default'}
-                plain={t.newCount === 0}
-                className={`flex-1 rounded-2xl font-bold h-12 !flex !flex-row !gap-2 !items-center !justify-center ${t.newCount === 0 ? 'bg-slate-100 !border-slate-100 text-slate-400' : 'bg-slate-800 border-slate-800 text-white'}`}
-                onClick={() => handleLearnNew(t.topic)}
-              >
-                 {t.newCount > 0 ? <PlusCircle size={16} /> : <CheckCircle size={16} />}
-                 {t.newCount > 0 ? 'Start' : 'Done'}
-              </Button>
-              
-              {/* Download Button */}
-               <Button 
-                onClick={() => handleDownloadPack(t.topic)}
-                disabled={isLoading}
-                className="!w-12 h-12 !px-0 rounded-2xl bg-blue-50 border-blue-50 text-blue-600"
-              >
-                {isLoading && loadingTopic === t.topic ? <RefreshCw size={18} className="animate-spin"/> : <DownloadCloud size={18} />}
-              </Button>
-              
-              <Button 
-                onClick={() => handleReview(t.topic)}
-                disabled={t.dueCount === 0 || isLoading}
-                type="warn"
-                className={`!w-12 h-12 !px-0 rounded-2xl ${
-                  t.dueCount > 0 ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-200' : 'bg-slate-50 border-slate-50 text-slate-300'
-                }`}
-              >
-                <Clock size={18} />
-              </Button>
-            </View>
-          </View>
-        ))}
+      {/* Courses Section */}
+      <View className="flex-1 flex flex-col">
+        <View className="px-6 pb-3 pt-4">
+          <Text className="text-lg font-semibold text-black dark:text-white flex items-center gap-2">
+            <Book size={20} className="text-blue-500" />
+            My Courses
+          </Text>
         </View>
-      </ScrollView>
+        
+        {/* Topic Grid Component */}
+        <TopicGrid
+          topicStats={topicStats}
+          isLoading={isLoading}
+          loadingTopic={loadingTopic}
+          getTopicGradient={getTopicGradient}
+          onLearnNew={handleLearnNew}
+          onDownload={handleDownloadPack}
+          onReview={handleReview}
+        />
+      </View>
     </View>
   );
 
@@ -340,7 +341,9 @@ const App: React.FC = () => {
         <View className="flex-1 px-6 pb-8 z-10 flex flex-col">
           <WordCard 
             word={words[currentCardIndex]} 
-            onNext={handleCardResult} 
+            onNext={handleCardResult}
+            currentIndex={currentCardIndex}
+            totalCount={words.length}
           />
         </View>
       </View>
@@ -348,72 +351,13 @@ const App: React.FC = () => {
   };
 
   const renderStats = () => {
-    const data = [
-      { name: 'M', count: 12 }, { name: 'T', count: 19 }, { name: 'W', count: 3 },
-      { name: 'T', count: 25 }, { name: 'F', count: stats.todayCount },
-      { name: 'S', count: 0 }, { name: 'S', count: 0 },
-    ];
     const localWords = getLocalWords();
-    const mastered = localWords.filter(w => w.stage >= 5).length;
-    const learning = localWords.length - mastered;
-
     return (
-      <View className="h-full bg-slate-50 flex flex-col">
-        <View className="p-8 pb-4">
-           <Text className="text-3xl font-black text-slate-800">Your Stats</Text>
+      <View className="h-full">
+        <View className="p-6 pb-4 bg-white border-b border-gray-200">
+          <Text className="text-3xl font-black text-gray-800">学习统计</Text>
         </View>
-        
-        <ScrollView scrollY className="flex-1 px-6 pb-32 space-y-6">
-          <View className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
-            <Text className="text-sm font-bold text-slate-400 uppercase mb-6 tracking-wider block">Weekly Activity</Text>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data}>
-                  <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} tick={{fill: '#94a3b8'}} />
-                  <Bar dataKey="count" radius={[6, 6, 6, 6]} barSize={12}>
-                    {data.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.name === 'F' ? '#07c160' : '#e2e8f0'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </View>
-
-          <View className="grid grid-cols-2 gap-4">
-             <View className="bg-emerald-50 p-5 rounded-[2rem] border border-emerald-100">
-                <Text className="text-emerald-600 font-medium text-sm block">Mastered</Text>
-                <Text className="text-3xl font-black text-emerald-800 mt-2 block">{mastered}</Text>
-             </View>
-             <View className="bg-blue-50 p-5 rounded-[2rem] border border-blue-100">
-                <Text className="text-blue-600 font-medium text-sm block">Learning</Text>
-                <Text className="text-3xl font-black text-blue-800 mt-2 block">{learning}</Text>
-             </View>
-          </View>
-
-          <View className="bg-white rounded-[2rem] shadow-sm overflow-hidden border border-slate-100 pb-20">
-             <View className="p-5 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
-               <Text className="font-bold text-slate-700">Vocabulary Library</Text>
-               <View className="flex items-center gap-1 text-slate-400 text-xs font-bold bg-slate-100 px-2 py-1 rounded-md">
-                   <Database size={12} /> <Text>{localWords.length}</Text>
-               </View>
-             </View>
-             <View className="divide-y divide-slate-50 max-h-60 overflow-y-auto">
-               {localWords.slice(0, 10).map((w, i) => (
-                 <View key={i} className="p-4 flex justify-between items-center hover:bg-slate-50">
-                   <View>
-                     <Text className="font-bold text-slate-700 block">{w.word}</Text>
-                     <Text className="text-[10px] text-slate-400 uppercase block">{w.topic}</Text>
-                   </View>
-                   {w.stage >= 5 && <CheckCircle size={16} className="text-emerald-500" />}
-                 </View>
-               ))}
-               <View className="p-4 text-center text-sm text-slate-400 font-medium hover:bg-slate-50 cursor-pointer">
-                  <Text>View All {localWords.length} Words</Text>
-               </View>
-             </View>
-          </View>
-        </ScrollView>
+        <StatsPanel words={localWords} />
       </View>
     );
   };
@@ -485,6 +429,9 @@ const App: React.FC = () => {
             <Text className="text-slate-500 text-sm block">Building {loadingTopic || 'vocabulary'} cards</Text>
           </View>
         )}
+
+        {/* Onboarding Guide */}
+        <OnboardingGuide show={showOnboarding} onClose={() => setShowOnboarding(false)} />
       </View>
     </View>
   );

@@ -1,4 +1,5 @@
 import { WordItem, Difficulty } from '../types';
+import { createNewWord } from './srsService';
 
 export const generateWordBatch = async (
   topic: string,
@@ -17,13 +18,10 @@ export const generateWordBatch = async (
 
     const rawData = await res.json();
 
-    return rawData.map((item: any) => ({
+    // 使用 createNewWord 确保新单词有完整的 SRS 初始化
+    return rawData.map((item: any) => createNewWord({
       ...item,
-      topic,
-      masteryLevel: 0,
-      stage: -1,
-      lastReview: 0,
-      nextReviewDate: 0
+      topic
     }));
   } catch (error) {
     console.error('Error generating words:', error);

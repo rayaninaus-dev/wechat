@@ -34,8 +34,12 @@ Requirements:
 2. Provide a clear, precise English definition.
 3. Provide a Chinese translation (Simplified Chinese).
 4. Provide one complex example sentence relevant to an IELTS context.
+5. Provide 2-3 synonyms (words with similar meaning).
+6. Provide 1-2 antonyms (words with opposite meaning) if applicable.
+7. Provide 2-3 common collocations (phrases the word is commonly used with).
+8. Provide 2-3 related word forms (same word family, e.g., adjective form, adverb form, noun form).
 
-Output Format: JSON Array`;
+Output Format: JSON Array of objects with fields: word, phonetic, definition, translation, example, synonyms (array), antonyms (array), collocations (array), wordFamily (array)`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -51,7 +55,23 @@ Output Format: JSON Array`;
               phonetic: { type: Type.STRING },
               definition: { type: Type.STRING },
               translation: { type: Type.STRING },
-              example: { type: Type.STRING }
+              example: { type: Type.STRING },
+              synonyms: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              },
+              antonyms: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              },
+              collocations: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              },
+              wordFamily: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              }
             },
             required: ['word', 'phonetic', 'definition', 'translation', 'example']
           }
