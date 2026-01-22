@@ -4,10 +4,9 @@ import TabBar from './components/TabBar';
 import WordCard from './components/WordCard';
 import StatsPanel from './components/StatsPanel';
 import AchievementDisplay from './components/AchievementDisplay';
-import TopicGrid from './components/TopicGrid';
 import OnboardingGuide from './components/OnboardingGuide';
 import { WxOverlays } from './components/WxOverlays';
-import { View, Text, Button, ScrollView, Image } from './components/WxComponents';
+import { View, Text, Button, Image } from './components/WxComponents';
 import { generateWordBatch } from './services/geminiService';
 import { 
   getLocalWords, 
@@ -190,7 +189,7 @@ const App: React.FC = () => {
   // --- UI RENDERERS ---
 
   const renderHome = () => (
-    <View className="flex flex-col h-full bg-white dark:bg-black relative pb-32 transition-colors duration-200">
+    <View className="w-full bg-white dark:bg-black transition-colors duration-200">
       {/* Header Section - Apple Minimalist */}
       <View className="relative z-10 px-6 pt-8 pb-6 border-b border-gray-200 dark:border-gray-800">
         {/* Top Bar - Date & Streak */}
@@ -283,7 +282,7 @@ const App: React.FC = () => {
       </View>
 
       {/* Courses Section */}
-      <View className="flex-1 flex flex-col">
+      <View className="w-full">
         <View className="px-6 pb-3 pt-4">
           <Text className="text-lg font-semibold text-black dark:text-white flex items-center gap-2">
             <Book size={20} className="text-blue-500" />
@@ -291,16 +290,139 @@ const App: React.FC = () => {
           </Text>
         </View>
         
-        {/* Topic Grid Component */}
-        <TopicGrid
-          topicStats={topicStats}
-          isLoading={isLoading}
-          loadingTopic={loadingTopic}
-          getTopicGradient={getTopicGradient}
-          onLearnNew={handleLearnNew}
-          onDownload={handleDownloadPack}
-          onReview={handleReview}
-        />
+        {/* Topic Grid Component - Inline with no ScrollView */}
+        <View className="px-4 pb-32">
+          {/* Filter Tabs */}
+          <View className="px-2 pb-3 border-b border-gray-200 dark:border-gray-800">
+            <View className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {(['all', 'new', 'due', 'mastered'] as const).map(f => (
+                <Button
+                  key={f}
+                  size="small"
+                  type={'default'}
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-all bg-gray-100 dark:bg-gray-800 border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300`}
+                  onClick={() => {}}
+                >
+                  {f === 'all' && 'All'}
+                  {f === 'new' && 'New'}
+                  {f === 'due' && 'Due'}
+                  {f === 'mastered' && 'Done'}
+                </Button>
+              ))}
+            </View>
+          </View>
+
+          {/* Grid Container */}
+          <View className="grid grid-cols-2 gap-3 pb-4 pt-3">
+            {topicStats.map((t, i) => (
+              <View
+                key={t.topic}
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-md transition-shadow active:shadow-none cursor-pointer"
+                onClick={() => {
+                  if (t.dueCount > 0) {
+                    handleReview(t.topic);
+                  } else if (t.newCount > 0) {
+                    handleLearnNew(t.topic);
+                  }
+                }}
+              >
+                {/* Gradient Header */}
+                <View
+                  className={`bg-gradient-to-br ${getTopicGradient(i)} p-3 text-white relative min-h-[100px] flex flex-col justify-between`}
+                >
+                  {/* Topic Name */}
+                  <View className="flex justify-between items-start gap-2">
+                    <Text className="font-bold text-sm leading-tight flex-1 line-clamp-2">
+                      {t.topic}
+                    </Text>
+                  </View>
+
+                  {/* Word Count */}
+                  <Text className="text-xs text-white/80 font-medium">
+                    {t.learningCount + t.masteredCount}/{t.learningCount + t.newCount + t.masteredCount}
+                  </Text>
+                </View>
+
+                {/* Stats Section */}
+                <View className="p-3 space-y-2">
+                  {/* Primary Stat */}
+                  {t.dueCount > 0 ? (
+                    <View className="flex items-center justify-between bg-red-50 dark:bg-red-900/20 rounded-lg p-2 border border-red-200 dark:border-red-800/30">
+                      <Text className="text-xs font-semibold text-red-600 dark:text-red-400">Review</Text>
+                      <Text className="text-base font-bold text-red-600 dark:text-red-400">{t.dueCount}</Text>
+                    </View>
+                  ) : t.newCount > 0 ? (
+                    <View className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 border border-blue-200 dark:border-blue-800/30">
+                      <Text className="text-xs font-semibold text-blue-600 dark:text-blue-400">New</Text>
+                      <Text className="text-base font-bold text-blue-600 dark:text-blue-400">+{t.newCount}</Text>
+                    </View>
+                  ) : (
+                    <View className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 rounded-lg p-2 border border-green-200 dark:border-green-800/30">
+                      <Text className="text-xs font-semibold text-green-600 dark:text-green-400">Done</Text>
+                      <Text className="text-base font-bold text-green-600 dark:text-green-400">
+                        {t.masteredCount}/{t.learningCount + t.newCount + t.masteredCount}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Mini Stats */}
+                  <View className="flex gap-2 text-xs">
+                    <View className="flex-1 text-center">
+                      <Text className="text-gray-500 dark:text-gray-400 font-semibold block text-[10px]">Learning</Text>
+                      <Text className="text-gray-800 dark:text-gray-200 font-bold text-sm">{t.learningCount}</Text>
+                    </View>
+                    <View className="flex-1 text-center">
+                      <Text className="text-gray-500 dark:text-gray-400 font-semibold block text-[10px]">Mastered</Text>
+                      <Text className="text-green-600 dark:text-green-400 font-bold text-sm">{t.masteredCount}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View className="px-3 pb-3 flex gap-2">
+                  {/* Primary Button */}
+                  <Button
+                    type={t.newCount > 0 || t.dueCount > 0 ? 'primary' : 'default'}
+                    size="small"
+                    plain={t.newCount === 0 && t.dueCount === 0}
+                    className={`flex-1 rounded-lg !h-9 !text-xs font-semibold ${
+                      t.newCount > 0 || t.dueCount > 0
+                        ? '!bg-blue-500 dark:!bg-blue-600 !border-blue-500 dark:!border-blue-600 !text-white'
+                        : '!bg-gray-100 dark:!bg-gray-800 !border-gray-100 dark:!border-gray-800 !text-gray-400 dark:!text-gray-500'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (t.dueCount > 0) {
+                        handleReview(t.topic);
+                      } else if (t.newCount > 0) {
+                        handleLearnNew(t.topic);
+                      }
+                    }}
+                  >
+                    {t.dueCount > 0 ? 'Review' : t.newCount > 0 ? 'Learn' : 'Done'}
+                  </Button>
+
+                  {/* Download Button */}
+                  <Button
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadPack(t.topic);
+                    }}
+                    disabled={isLoading}
+                    className="!w-9 !h-9 !px-0 rounded-lg !bg-gray-100 dark:!bg-gray-800 !border-gray-100 dark:!border-gray-800 !text-gray-600 dark:!text-gray-400 !flex !items-center !justify-center"
+                  >
+                    {isLoading && loadingTopic === t.topic ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      <DownloadCloud size={16} />
+                    )}
+                  </Button>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -406,7 +528,7 @@ const App: React.FC = () => {
         <WxOverlays />
 
         {/* Main Content Area */}
-        <View className="flex-1 overflow-hidden relative">
+        <View className="flex-1 overflow-y-auto relative">
           {currentView === ViewState.HOME && renderHome()}
           {currentView === ViewState.STUDY && renderStudy()}
           {currentView === ViewState.STATS && renderStats()}

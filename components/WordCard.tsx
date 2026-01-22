@@ -87,7 +87,7 @@ const WordCard: React.FC<WordCardProps> = ({ word, onNext, currentIndex, totalCo
     setSelectedQuality(null);
   }, [word]);
 
-  const handlePlayAudio = async (e: React.MouseEvent) => {
+  const handlePlayAudio = async (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (audioCache) {
       playAudioData(audioCache);
@@ -153,13 +153,13 @@ const WordCard: React.FC<WordCardProps> = ({ word, onNext, currentIndex, totalCo
       {/* 卡片容器 */}
       <View className="flex-1 px-4 mb-4 perspective-1000 relative group">
         <View 
-          className={`relative w-full h-full duration-500 transform-style-3d transition-all cursor-pointer ${
-            isFlipped ? 'rotate-y-180' : ''
+          className={`relative w-full h-full transform-style-3d transition-transform duration-500 cursor-pointer ${
+            isFlipped ? 'card-flipped' : ''
           }`}
           onClick={() => setIsFlipped(!isFlipped)}
         >
           {/* 正面 - 单词 */}
-          <View className="absolute w-full h-full backface-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center p-8">
+          <View className={`absolute w-full h-full backface-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center p-8`}>
             <View className="flex-1 flex flex-col items-center justify-center w-full relative z-10">
               {word.reviewCount > 0 && (
                 <View className="mb-8 text-center">
@@ -201,29 +201,43 @@ const WordCard: React.FC<WordCardProps> = ({ word, onNext, currentIndex, totalCo
               </View>
             </View>
 
-            <Text className="mt-auto text-gray-400 dark:text-gray-600 text-sm font-medium animate-bounce">
-              {isFlipped ? '↓ 返回' : '↑ 查看含义'}
+            <Text className="mt-auto text-gray-400 dark:text-gray-600 text-sm font-medium">
+              点击卡片查看{isFlipped ? '单词' : '含义'}
             </Text>
           </View>
 
           {/* 背面 - 含义和例句 */}
-          <View className="absolute w-full h-full backface-hidden rotate-y-180 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col p-8 overflow-y-auto no-scrollbar">
+          <View 
+            className={`absolute w-full h-full backface-hidden bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col p-8 overflow-y-auto no-scrollbar`}
+            style={{ transform: 'rotateY(180deg)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <View className="flex justify-between items-start mb-6 pb-4 border-b border-gray-200 dark:border-gray-700 relative z-10">
               <View className="flex-1">
-                <Text className="text-sm font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-2 block">
-                  Definition
-                </Text>
-                <Text className="text-xl font-bold text-gray-800 dark:text-white">{word.word}</Text>
+                <View 
+                  onClick={handlePlayAudio}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-all cursor-pointer transform active:scale-95 ${
+                    isLoadingAudio 
+                      ? 'bg-blue-100 dark:bg-blue-900/30' 
+                      : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-700'
+                  }`}
+                >
+                  <Volume2 
+                    size={16} 
+                    className={`${isLoadingAudio ? 'text-blue-600 dark:text-blue-400 animate-pulse' : 'text-blue-500 dark:text-blue-400'}`}
+                  />
+                  <Text className="text-gray-800 dark:text-gray-200 font-mono text-sm font-semibold">{word.phonetic}</Text>
+                </View>
               </View>
               <View 
-                onClick={handlePlayAudio} 
+                onClick={handlePlayAudio}
                 className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-blue-500 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:bg-gray-300 dark:active:bg-gray-600 transition-all cursor-pointer transform active:scale-90 ml-3 flex-shrink-0"
               >
                 <Volume2 size={20} />
               </View>
             </View>
             
-            <View className="space-y-4 flex-1 relative z-10 text-sm">
+            <View className="space-y-4 flex-1 relative z-10 text-sm" onClick={(e) => e.stopPropagation()}>
               {/* 定义 */}
               <View>
                 <Text className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2 block">
@@ -378,10 +392,20 @@ const WordCard: React.FC<WordCardProps> = ({ word, onNext, currentIndex, totalCo
       </View>
 
       <style>{`
-        .perspective-1000 { perspective: 1000px; }
-        .transform-style-3d { transform-style: preserve-3d; }
-        .backface-hidden { backface-visibility: hidden; }
-        .rotate-y-180 { transform: rotateY(180deg); }
+        .perspective-1000 { 
+          perspective: 1000px; 
+        }
+        .transform-style-3d { 
+          transform-style: preserve-3d; 
+        }
+        .backface-hidden { 
+          backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          -moz-backface-visibility: hidden;
+        }
+        .card-flipped { 
+          transform: rotateY(180deg);
+        }
       `}</style>
     </View>
   );

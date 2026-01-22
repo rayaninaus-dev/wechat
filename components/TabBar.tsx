@@ -45,14 +45,6 @@ const TabBar: React.FC<TabBarProps> = ({ currentView }) => {
       badge: null
     },
     { 
-      view: ViewState.STUDY, 
-      icon: BookOpen, 
-      label: 'Study', 
-      activeCheck: isStudyActive, 
-      url: 'pages/study',
-      badge: reviewCount > 0 ? reviewCount : null
-    },
-    { 
       view: ViewState.STATS, 
       icon: BarChart2, 
       label: 'Stats', 
@@ -77,7 +69,7 @@ const TabBar: React.FC<TabBarProps> = ({ currentView }) => {
       {/* 导航容器 */}
       <View className="relative px-4 py-4 pb-6 flex justify-around items-center pointer-events-auto">
         {navItems.map((item) => {
-          const isActive = item.activeCheck ?? currentView === item.view;
+          const isActive = currentView === item.view;
           return (
             <View
               key={item.label}

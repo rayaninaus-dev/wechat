@@ -168,12 +168,16 @@ export const ScrollView: React.FC<ScrollViewProps> = ({
     ${scrollY ? 'overflow-y-auto overflow-x-hidden' : ''}
     ${scrollX ? 'overflow-x-auto overflow-y-hidden' : ''}
     ${!scrollY && !scrollX ? 'overflow-hidden' : ''}
-    no-scrollbar
+    scrollbar-hide
   `;
   
   return (
     <div 
       className={`${className} ${scrollClass} ${enableFlex ? 'flex' : ''}`}
+      style={{
+        ...props.style,
+        WebkitOverflowScrolling: 'touch',
+      } as any}
       {...props}
     >
       {children}

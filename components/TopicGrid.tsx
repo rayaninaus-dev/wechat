@@ -77,7 +77,7 @@ const TopicGrid: React.FC<TopicGridProps> = ({
       </View>
 
       {/* Grid Container */}
-      <ScrollView scrollY className="flex-1 px-4">
+      <ScrollView scrollY className="flex-1 px-4 h-full overflow-y-auto">
         <View className="grid grid-cols-2 gap-3 pb-20 pt-3">
           {sortedStats.map((t, i) => (
             <View
